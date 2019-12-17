@@ -1,30 +1,38 @@
 jobs:
-  update-tag:
-     docker:
-      - image: mesosphere/aws-cli
-     steps:
+  test-cluster:
+    executor: aws-eks/python3
+    parameters:
+      cluster-name:
+        description: |
+          Name of the EKS cluster
+        type: string
+        default: thri
+    steps:
       - checkout
-      - run: cd containers && echo $CIRCLE_SHA1 && pwd && sed -i -e "s/latest/${CIRCLE_SHA1}/g" fargate.json && aws ecs register-task-definition --cli-input-json file:///root/project/containers/fargate.json
-      - run: cd /root/project/containers && chmod +x fargate-service.sh && sh fargate-service.sh
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << parameters.cluster-name >>
+      - kubernetes/install
+      - run: ls && pwd && cd containers && echo $CIRCLE_SHA1 && sed -i -e "s/latest/${CIRCLE_SHA1}/g" kube.yml && cat kube.yml && kubectl apply -f kube.yml
       - run:
           command: |
-            aws ecs list-services --cluster default && aws ecs list-task-definitions && aws ecs describe-services --cluster default --services nginx
+            kubectl get all -n poc
+          name: Test Cluster
 version: 2.1
 orbs:
+  aws-eks: circleci/aws-eks@0.2.0
   aws-ecr: circleci/aws-ecr@3.1.0
-  aws-cli: circleci/aws-cli@0.1.4
-  aws-ecs: circleci/aws-ecs@0.0.15   
+  kubernetes: circleci/kubernetes@0.3.0
 workflows:
-  build-and-deploy:
+  deployment:
     jobs:
       - aws-ecr/build_and_push_image:
           name: build-and-push-nginx-image
-          account-url: 'AWS_ECR_URL'
-          repo: 'nginx'
+          account-url: AWS_ECR_URL
+          region: AWS_DEFAULT_REGION
+          repo: nginx
           dockerfile: ~/project/containers/nginx/Dockerfile
           path: ~/project/containers/nginx
-          region: 'AWS_DEFAULT_REGION'
-          tag: '${CIRCLE_SHA1}'
+          tag: ${CIRCLE_SHA1}
       - aws-ecr/build_and_push_image:
           name: build-and-push-python-image
           account-url: AWS_ECR_URL
@@ -41,8 +49,8 @@ workflows:
           dockerfile: ~/project/containers/nodejs/Dockerfile
           path: ~/project/containers/nodejs
           tag: ${CIRCLE_SHA1}
-      - update-tag:
-          requires:
+      - test-cluster:
+          cluster-name: thri
             - build-and-push-nginx-image
             - build-and-push-python-image
             - build-and-push-nodejs-image

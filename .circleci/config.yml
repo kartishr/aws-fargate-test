@@ -1,41 +1,48 @@
+jobs:
+  update-tag:
+     docker:
+      - image: mesosphere/aws-cli
+     steps:
+      - checkout
+      - run: cd containers && echo $CIRCLE_SHA1 && pwd && sed -i -e "s/latest/${CIRCLE_SHA1}/g" fargate.json && aws ecs register-task-definition --cli-input-json file:///root/project/containers/fargate.json
+      - run: cd /root/project/containers && chmod +x fargate-service.sh && sh fargate-service.sh
+      - run:
+          command: |
+            aws ecs list-services --cluster default && aws ecs list-task-definitions && aws ecs describe-services --cluster default --services nginx
 version: 2.1
 orbs:
-  aws-eks: circleci/aws-eks@0.2.0
   aws-ecr: circleci/aws-ecr@3.1.0
-  kubernetes: circleci/kubernetes@0.3.0
+  aws-cli: circleci/aws-cli@0.1.4
+  aws-ecs: circleci/aws-ecs@0.0.15   
 workflows:
-  deployment:
+  build-and-deploy:
     jobs:
       - aws-ecr/build_and_push_image:
           name: build-and-push-nginx-image
-          account-url: AWS_ECR_URL
-          region: AWS_DEFAULT_REGION
-          repo: nginx
+          account-url: 'AWS_ECR_URL'
+          repo: 'nginx'
           dockerfile: ~/project/containers/nginx/Dockerfile
           path: ~/project/containers/nginx
-          tag: ${CIRCLE_SHA1}
-      - aws-ecr/build_and_push_image:
-          name: build-and-push-python-image
-          account-url: AWS_ECR_URL
-          region: AWS_DEFAULT_REGION
-          repo: python
-          dockerfile: ~/project/containers/python/Dockerfile
-          path: ~/project/containers/python
-          tag: ${CIRCLE_SHA1}
-      - aws-ecr/build_and_push_image:
-          name: build-and-push-nodejs-image
-          account-url: AWS_ECR_URL
-          region: AWS_DEFAULT_REGION
-          repo: nodejs
-          dockerfile: ~/project/containers/nodejs/Dockerfile
-          path: ~/project/containers/nodejs
-          tag: ${CIRCLE_SHA1}
-      - aws-ecs/deploy-service-update:
+          region: 'AWS_DEFAULT_REGION'
+          tag: '${CIRCLE_SHA1}'
+      #- aws-ecr/build_and_push_image:
+      #    name: build-and-push-python-image
+      #    account-url: AWS_ECR_URL
+      #    region: AWS_DEFAULT_REGION
+      #    repo: python
+      #    dockerfile: ~/project/containers/python/Dockerfile
+      #    path: ~/project/containers/python
+      #    tag: ${CIRCLE_SHA1}
+      #- aws-ecr/build_and_push_image:
+      #    name: build-and-push-nodejs-image
+      #    account-url: AWS_ECR_URL
+      #    region: AWS_DEFAULT_REGION
+      #    repo: nodejs
+      #    dockerfile: ~/project/containers/nodejs/Dockerfile
+      #    path: ~/project/containers/nodejs
+      #    tag: ${CIRCLE_SHA1}
+      - update-tag:
           requires:
             - build-and-push-nginx-image
-            - build-and-push-python-image
-            - build-and-push-nodejs-image
-          aws-region: AWS_DEFAULT_REGION
-          family: "nginx-service"
-          cluster-name: "default"
-          container-image-name-updates: "container=nginx,tag=${CIRCLE_SHA1}"
+            #- build-and-push-python-image
+            #- build-and-push-nodejs-image

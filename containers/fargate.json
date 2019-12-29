@@ -1,0 +1,45 @@
+{
+    "family": "sample-fargate",
+    "networkMode": "awsvpc",
+    "containerDefinitions": [
+        {
+            "name": "nginx", 
+            "image": "543512271426.dkr.ecr.us-west-1.amazonaws.com/nginx:latest",
+            "portMappings": [
+                {
+                    "containerPort": 80, 
+                    "hostPort": 80, 
+                    "protocol": "tcp"
+                }
+            ]
+        },
+        {
+            "name": "python",
+            "image": "543512271426.dkr.ecr.us-west-1.amazonaws.com/python:latest",
+            "essential": true,
+            "portMappings": [
+              {
+                "protocol": "tcp",
+                "containerPort": 5000
+              }
+            ]
+          },
+          {
+            "name": "nodejs",
+            "image": "543512271426.dkr.ecr.us-west-1.amazonaws.com/nodejs:latest",
+            "essential": true,
+            "portMappings": [
+              {
+                "protocol": "tcp",
+                "containerPort": 8000
+              }
+            ]
+          }
+    ], 
+    "requiresCompatibilities": [
+        "FARGATE"
+    ], 
+    "cpu": "2048",
+    "executionRoleArn": "arn:aws:iam::543512271426:role/ecs-task-execution-for-ecs-fargate",
+    "memory": "6144"
+}
